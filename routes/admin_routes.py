@@ -60,6 +60,7 @@ def import_excel():
         safe_name = os.path.splitext(safe_name)[0]
     unique_name = "{0}_{1}{2}".format(safe_name, uuid.uuid4().hex[:8], orig_ext)
     filepath = os.path.join(UPLOAD_EXCELS, unique_name)
+    os.makedirs(UPLOAD_EXCELS, exist_ok=True)
     f.save(filepath)
 
     try:
