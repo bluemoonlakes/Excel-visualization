@@ -29,6 +29,11 @@ desktop.ini
 *.swp
 *.swo
 
+# 数据文件（不提交个人数据）
+*.zip
+*.xlsx
+*.xls
+
 # 残留垃圾文件
 nul
 =*
