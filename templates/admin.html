@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>后台管理 — Excel 展示系统</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- Header -->
+  <header class="admin-header">
+    <div class="logo">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/>
+      </svg>
+      Excel <span>展示管理</span>
+    </div>
+    <div class="header-actions">
+      <a href="/" class="view-link" target="_blank">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+        </svg>
+        查看展示页
+      </a>
+    </div>
+  </header>
+
+  <!-- 主内容 -->
+  <main class="admin-main">
+
+    <!-- Tab 导航 -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="tab-import">
+        📥 导入数据
+      </button>
+      <button class="tab-btn" data-tab="tab-cols">
+        ⚙️ 字段配置
+      </button>
+      <button class="tab-btn" data-tab="tab-data">
+        📋 数据管理
+      </button>
+      <button class="tab-btn" data-tab="tab-media">
+        🖼️ 素材库
+      </button>
+    </nav>
+
+    <!-- ── Tab 1: 导入 ── -->
+    <div id="tab-import" class="tab-panel active">
+      <div class="import-section">
+
+        <!-- 上传区 -->
+        <div class="section-card">
+          <h2 class="section-title">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            上传 Excel 文件
+          </h2>
+
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="upload-input" accept=".xlsx,.xls">
+            <div class="upload-icon">📊</div>
+            <p><strong>点击选择</strong>或将文件拖拽到此区域</p>
+            <p class="upload-hint">支持 .xlsx · .xls 格式，最大 50MB</p>
+          </div>
+
+          <p id="upload-status" style="margin-top:12px;font-size:.85rem;min-height:20px"></p>
+        </div>
+
+        <!-- 导入历史 -->
+        <div class="section-card">
+          <h2 class="section-title">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            导入历史
+          </h2>
+          <ul class="import-list" id="import-list">
+            <li class="text-muted text-sm" style="padding:12px">加载中...</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Tab 2: 字段配置 ── -->
+    <div id="tab-cols" class="tab-panel">
+      <div class="col-config-header">
+        <h2 class="section-title" style="margin:0">字段显示配置</h2>
+        <button class="btn btn-primary" id="save-cols-btn">保存配置</button>
+      </div>
+      <p class="col-config-hint">
+        拖拽行可调整展示顺序；「主标题」字段仅能设置一个；「筛选」字段会在展示页显示为标签筛选器。
+      </p>
+      <div style="overflow-x:auto">
+        <table class="col-config-table">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th>原始列名</th>
+              <th>展示别名</th>
+              <th>前台展示</th>
+              <th>作为筛选</th>
+              <th>主标题</th>
+              <th>字段类型</th>
+            </tr>
+          </thead>
+          <tbody id="col-tbody">
+            <tr><td colspan="7" class="text-muted text-sm" style="padding:20px;text-align:center">请先导入 Excel 文件</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Tab 3: 数据管理 ── -->
+    <div id="tab-data" class="tab-panel">
+      <div class="data-mgmt-header">
+        <h2 class="section-title" style="margin:0">数据管理</h2>
+        <div class="search-wrap">
+          <svg class="search-icon" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input class="input" id="data-search" placeholder="搜索...">
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="if(currentImportId){colHeaders=[];loadAdminCards(currentImportId,1);}">刷新</button>
+      </div>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead id="data-thead"></thead>
+          <tbody id="data-tbody">
+            <tr><td style="padding:40px;text-align:center;color:var(--gray-400)">请先在"导入数据"Tab 导入 Excel 文件</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="data-pagination" class="pagination" style="margin-top:20px"></div>
+    </div>
+
+    <!-- ── Tab 4: 素材库 ── -->
+    <div id="tab-media" class="tab-panel">
+
+      <!-- 上传区 -->
+      <div class="section-card" style="margin-bottom:24px">
+        <h2 class="section-title">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          批量上传图片素材
+        </h2>
+        <p class="col-config-hint">
+          文件名格式：<code>{客户问题类型}_{素材类型}_{描述}（{团队}）.jpg</code><br>
+          例如：<code>问套餐_服务介绍_汇正财经牛人掌股核心服务_001（杨）.jpg</code><br>
+          支持中英文括号；相同三级组合重复上传将自动替换旧图片。
+        </p>
+
+        <div class="upload-zone media-upload-zone" id="media-upload-zone">
+          <input type="file" id="media-upload-input" accept="image/*" multiple>
+          <div class="upload-icon">🖼️</div>
+          <p><strong>点击选择</strong>或拖拽图片到此区域（支持多选）</p>
+          <p class="upload-hint">支持 jpg · png · gif · webp，可批量上传</p>
+        </div>
+
+        <!-- 文件预览列表 -->
+        <div id="media-preview-list" style="display:none;margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span class="text-sm text-muted" id="media-preview-count"></span>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="clearMediaPreview()">清空</button>
+              <button class="btn btn-primary btn-sm" id="media-confirm-upload-btn" onclick="confirmMediaUpload()">确认上传</button>
+            </div>
+          </div>
+          <div id="media-preview-items" class="media-preview-items"></div>
+        </div>
+
+        <div id="media-upload-status" style="margin-top:10px;font-size:.85rem;min-height:16px"></div>
+      </div>
+
+      <!-- 素材浏览 -->
+      <div class="section-card">
+        <div class="media-browser-header">
+          <h2 class="section-title" style="margin:0">素材浏览</h2>
+          <div class="media-filters">
+            <select id="media-filter-l1" class="input" style="min-width:120px" onchange="loadMediaAssets(1)">
+              <option value="">全部问题类型</option>
+            </select>
+            <select id="media-filter-l2" class="input" style="min-width:110px" onchange="loadMediaAssets(1)">
+              <option value="">全部素材类型</option>
+            </select>
+            <select id="media-filter-l3" class="input" style="min-width:100px" onchange="loadMediaAssets(1)">
+              <option value="">全部团队</option>
+            </select>
+            <input class="input" id="media-filter-keyword" placeholder="搜索文件名..."
+                   style="min-width:150px" oninput="debounceMediaSearch()">
+            <button class="btn btn-outline btn-sm" onclick="loadMediaAssets(1)">刷新</button>
+          </div>
+        </div>
+
+        <div id="media-grid" class="media-grid">
+          <div style="padding:60px;text-align:center;color:var(--gray-400);grid-column:1/-1">
+            暂无素材，请先上传图片
+          </div>
+        </div>
+
+        <div id="media-pagination" class="pagination" style="margin-top:20px"></div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/admin.js"></script>
+</body>
+</html>

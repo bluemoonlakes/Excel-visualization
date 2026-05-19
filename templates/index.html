@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>话术知识库</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/cards.css">
+</head>
+<body>
+<div class="view-layout">
+
+  <!-- Header -->
+  <header class="view-header">
+    <div class="view-header-inner">
+      <div class="view-logo">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline;vertical-align:-3px;margin-right:6px">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        <span>话术</span>知识库
+      </div>
+
+      <div class="search-bar">
+        <svg class="search-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="search" id="search-input" placeholder="搜索话术内容...">
+      </div>
+
+      <div class="header-right">
+        <span class="result-count" id="result-count">加载中...</span>
+
+        <button class="btn btn-outline btn-sm switcher-toggle-all" id="switcher-toggle-all" onclick="toggleAllSwitchers()" title="收起/展开全部选择器">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          <span id="switcher-toggle-label">收起全部</span>
+        </button>
+
+        <a href="/admin" class="btn btn-outline btn-sm">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          管理
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 筛选栏 -->
+  <div class="filter-bar">
+    <div class="filter-bar-inner" id="filter-bar-inner"></div>
+    <div style="display:flex;justify-content:flex-end;padding-top:4px">
+      <span class="clear-filters" id="clear-all-filters" style="display:none">清除全部筛选</span>
+    </div>
+  </div>
+
+  <!-- 卡片区 -->
+  <div class="cards-main">
+    <div id="loading-indicator" style="display:none;justify-content:center;padding:60px">
+      <div class="spinner"></div>
+    </div>
+    <div class="cards-grid" id="cards-grid"></div>
+    <div class="load-more-wrap" id="load-more-wrap" style="display:none">
+      <button class="btn btn-outline" id="load-more-btn">加载更多</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/cards.js"></script>
+</body>
+</html>
