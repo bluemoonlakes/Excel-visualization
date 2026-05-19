@@ -96,7 +96,7 @@ def get_cards(import_id=None, page=1, page_size=20, filters=None, keyword=None, 
             if level1_set:
                 placeholders = ','.join(['?'] * len(level1_set))
                 rows = conn.execute(
-                    'SELECT level1, level2, level3, file_path '
+                    'SELECT level1, level2, level3, file_path, description '
                     'FROM media_assets '
                     'WHERE level1 IN ({0})'.format(placeholders),
                     list(level1_set)
@@ -106,12 +106,17 @@ def get_cards(import_id=None, page=1, page_size=20, filters=None, keyword=None, 
                     l1 = row['level1']
                     l2 = row['level2']
                     l3 = row['level3']
-                    url = '/uploads/images/media/{0}'.format(row['file_path'])
+                    entry = {
+                        'url': '/uploads/images/media/{0}'.format(row['file_path']),
+                        'description': row['description'] or ''
+                    }
                     if l1 not in l1_map:
                         l1_map[l1] = {}
                     if l2 not in l1_map[l1]:
                         l1_map[l1][l2] = {}
-                    l1_map[l1][l2][l3] = url
+                    if l3 not in l1_map[l1][l2]:
+                        l1_map[l1][l2][l3] = []
+                    l1_map[l1][l2][l3].append(entry)
             else:
                 l1_map = {}
 

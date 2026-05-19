@@ -10,7 +10,7 @@ from models.database import get_db
 from services.excel_parser import parse_and_import
 from services.config_service import get_display_config, update_columns, get_active_import_id
 from services.card_service import get_admin_cards
-from services.media_service import parse_media_filename, save_media_file, upsert_media_asset
+from services.media_service import parse_media_filename, save_media_file, insert_media_asset
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -19,7 +19,6 @@ def _allowed_ext(filename, allowed):
     return ext in allowed
 
 def _save_image_file(f, card_id):
-    """保存图片文件到旧的 card 目录，返回相对路径（保留兼容）"""
     ext = os.path.splitext(f.filename)[1].lower()
     img_filename = "{0}{1}".format(uuid.uuid4().hex, ext)
     card_dir = os.path.join(UPLOAD_IMAGES, str(card_id))
@@ -115,6 +114,45 @@ def admin_cards():
     result = get_admin_cards(import_id, page, page_size)
     return jsonify(result)
 
+
+@admin_bp.route('/api/admin/cards/<int:card_id>', methods=['DELETE'])
+def delete_card(card_id):
+    """删除单条数据记录。"""
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id FROM cards WHERE id=?", (card_id,)).fetchone()
+        if not row:
+            return jsonify({'error': '记录不存在'}), 404
+        conn.execute("DELETE FROM cards WHERE id=?", (card_id,))
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/api/admin/cards/<int:card_id>', methods=['PUT'])
+def update_card(card_id):
+    """更新单条数据字段。body: {data: {field: value, ...}}"""
+    body = request.get_json()
+    if not body or 'data' not in body:
+        return jsonify({'error': '参数错误'}), 400
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, data FROM cards WHERE id=?", (card_id,)).fetchone()
+        if not row:
+            return jsonify({'error': '记录不存在'}), 404
+        existing = json.loads(row['data'])
+        existing.update(body['data'])
+        conn.execute(
+            "UPDATE cards SET data=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (json.dumps(existing, ensure_ascii=False), card_id)
+        )
+        conn.commit()
+        return jsonify({'success': True, 'data': existing})
+    finally:
+        conn.close()
+
+
 # ─── 素材库 API ───────────────────────────────────────────────────────────────
 
 @admin_bp.route('/api/admin/media/upload', methods=['POST'])
@@ -141,7 +179,7 @@ def upload_media():
                 results.append({'filename': f.filename, 'error': '保存失败：{0}'.format(str(e))})
                 continue
 
-            status = upsert_media_asset(
+            status = insert_media_asset(
                 conn,
                 original_filename=f.filename,
                 level1=parsed['level1'],
@@ -227,7 +265,7 @@ def list_media():
 
 @admin_bp.route('/api/admin/media/tags', methods=['GET'])
 def media_tags():
-    """返回素材库中所有三个维度的可用标签（用于筛选器渲染）。"""
+    """返回素材库中所有三个维度的可用标签。"""
     conn = get_db()
     try:
         l1 = conn.execute("SELECT DISTINCT level1 FROM media_assets WHERE level1!='' ORDER BY level1").fetchall()

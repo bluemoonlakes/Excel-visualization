@@ -35,6 +35,19 @@ function l3Label(key) {
 
 const L3_NONE = '__none__';
 
+// == localStorage helpers for selector state ==
+function saveSelectorState(cardId, l2, l3, imgIdx) {
+  try {
+    localStorage.setItem('sel_' + cardId, JSON.stringify({ l2, l3, imgIdx: imgIdx || 0 }));
+  } catch(_) {}
+}
+function loadSelectorState(cardId) {
+  try {
+    const raw = localStorage.getItem('sel_' + cardId);
+    return raw ? JSON.parse(raw) : null;
+  } catch(_) { return null; }
+}
+
 // == Init ==
 async function init() {
   const params = new URLSearchParams(location.search);
@@ -184,7 +197,6 @@ function toggleAllSwitchers() {
   const btn = document.getElementById('switcher-toggle-all');
   if (label) label.textContent = globalSwitchersVisible ? '收起全部' : '展开全部';
   if (btn) btn.classList.toggle('collapsed', !globalSwitchersVisible);
-
   document.querySelectorAll('.item-card').forEach(el => {
     el._switcherVisible = globalSwitchersVisible;
     const area = el.querySelector('.card-switcher-area');
@@ -198,6 +210,7 @@ function toggleAllSwitchers() {
 }
 
 // == Render cards ==
+// imageMap: { level2: { level3: [{url, description}, ...] } }
 function renderCards(cards) {
   const grid = document.getElementById('cards-grid');
 
@@ -215,9 +228,21 @@ function renderCards(cards) {
   cards.forEach(card => {
     const imageMap = card.image_map || {};
     const level2Keys = Object.keys(imageMap);
-    const defaultL2 = level2Keys.length > 0 ? level2Keys[0] : null;
-    const level3Keys = defaultL2 ? Object.keys(imageMap[defaultL2]) : [];
-    const defaultL3 = level3Keys.length > 0 ? level3Keys[0] : null;
+
+    // Restore saved state or use defaults
+    const saved = loadSelectorState(card.id);
+    let defaultL2, defaultL3, defaultImgIdx;
+    if (saved && saved.l2 && imageMap[saved.l2]) {
+      defaultL2 = saved.l2;
+      const l3map = imageMap[defaultL2] || {};
+      defaultL3 = (saved.l3 != null && l3map[saved.l3] !== undefined) ? saved.l3 : Object.keys(l3map)[0] || null;
+      defaultImgIdx = saved.imgIdx || 0;
+    } else {
+      defaultL2 = level2Keys.length > 0 ? level2Keys[0] : null;
+      const level3Keys = defaultL2 ? Object.keys(imageMap[defaultL2] || {}) : [];
+      defaultL3 = level3Keys.length > 0 ? level3Keys[0] : null;
+      defaultImgIdx = 0;
+    }
 
     const primaryField = card.fields.find(f => f.is_primary) || card.fields[0];
     const bodyFields = card.fields.filter(f => !f.is_primary && f.field_type !== 'tag' && f.value);
@@ -228,9 +253,9 @@ function renderCards(cards) {
     el._imageMap = imageMap;
     el._activeL2 = defaultL2;
     el._activeL3 = defaultL3;
+    el._imgIdx = defaultImgIdx;
     el._switcherVisible = globalSwitchersVisible;
 
-    // per-card toggle button
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'card-switcher-toggle-btn' + (globalSwitchersVisible ? '' : ' collapsed');
     toggleBtn.title = globalSwitchersVisible ? '收起选择器' : '展开选择器';
@@ -244,9 +269,13 @@ function renderCards(cards) {
       if (e.target.closest('.card-switcher-toggle-btn')) return;
       const l2btn = e.target.closest('.card-level2-btn');
       const l3btn = e.target.closest('.card-level3-btn');
+      const prevBtn = e.target.closest('.card-img-prev');
+      const nextBtn = e.target.closest('.card-img-next');
       if (l2btn) { e.stopPropagation(); setCardL2(el, l2btn.dataset.l2); return; }
       if (l3btn) { e.stopPropagation(); setCardL3(el, l3btn.dataset.l3); return; }
-      openDetail(card, el._activeL2, el._activeL3);
+      if (prevBtn) { e.stopPropagation(); shiftImg(el, -1); return; }
+      if (nextBtn) { e.stopPropagation(); shiftImg(el, 1); return; }
+      openDetail(card, el._activeL2, el._activeL3, el._imgIdx);
     });
 
     grid.appendChild(el);
@@ -263,14 +292,41 @@ function renderCards(cards) {
   }
 }
 
-function getCurrentImageUrl(imageMap, activeL2, activeL3) {
-  if (!activeL2 || activeL3 === L3_NONE) return null;
-  return (imageMap[activeL2] || {})[activeL3] || null;
+// imageMap entries are now {url, description} objects
+function getImgArray(imageMap, l2, l3) {
+  if (!l2 || l3 === L3_NONE) return [];
+  return (imageMap[l2] || {})[l3] || [];
 }
 
-function buildImgHTML(url) {
+// Get url from entry (supports both legacy string and new {url, description} object)
+function entryUrl(entry) {
+  if (!entry) return null;
+  return typeof entry === 'string' ? entry : entry.url;
+}
+function entryDesc(entry) {
+  if (!entry) return '';
+  return typeof entry === 'string' ? '' : (entry.description || '');
+}
+
+function buildImgHTML(entry, total, idx) {
+  const url = entryUrl(entry);
   if (!url) return '';
-  return `<div class="card-img-wrap"><img src="${escHtml(url)}" alt="" loading="lazy"></div>`;
+  const desc = entryDesc(entry);
+  const nav = total > 1
+    ? `<div class="card-img-nav">
+         <button class="card-img-prev" title="上一张">&#8249;</button>
+         <span class="card-img-counter">${idx + 1}/${total}</span>
+         <button class="card-img-next" title="下一张">&#8250;</button>
+       </div>`
+    : '';
+  const descHTML = desc
+    ? `<div class="card-img-desc">${escHtml(desc)}</div>`
+    : '';
+  return `<div class="card-img-wrap">
+    <img src="${escHtml(url)}" alt="${escHtml(desc)}" loading="lazy">
+    ${nav}
+    ${descHTML}
+  </div>`;
 }
 
 function buildSwitcherInner(imageMap, activeL2, activeL3) {
@@ -297,8 +353,9 @@ function buildSwitcherInner(imageMap, activeL2, activeL3) {
 }
 
 function renderCardContent(el, card, primaryField, bodyFields) {
-  const url = getCurrentImageUrl(el._imageMap, el._activeL2, el._activeL3);
-  const imgHTML = buildImgHTML(url);
+  const arr = getImgArray(el._imageMap, el._activeL2, el._activeL3);
+  const entry = arr.length > 0 ? arr[Math.min(el._imgIdx, arr.length - 1)] : null;
+  const imgHTML = buildImgHTML(entry, arr.length, el._imgIdx);
   const switcherInner = buildSwitcherInner(el._imageMap, el._activeL2, el._activeL3);
   const collapseCls = globalSwitchersVisible ? '' : ' collapsed';
   const switcherArea = switcherInner ? `<div class="card-switcher-area${collapseCls}">${switcherInner}</div>` : '';
@@ -321,32 +378,40 @@ function setCardL2(el, l2) {
   el._activeL2 = l2;
   const l3Keys = Object.keys(el._imageMap[l2] || {});
   el._activeL3 = l3Keys.length > 0 ? l3Keys[0] : L3_NONE;
+  el._imgIdx = 0;
+  saveSelectorState(el.dataset.cardId, el._activeL2, el._activeL3, el._imgIdx);
   refreshCardDisplay(el);
 }
 
 function setCardL3(el, l3) {
   el._activeL3 = l3;
+  el._imgIdx = 0;
+  saveSelectorState(el.dataset.cardId, el._activeL2, el._activeL3, el._imgIdx);
+  refreshCardDisplay(el);
+}
+
+function shiftImg(el, delta) {
+  const arr = getImgArray(el._imageMap, el._activeL2, el._activeL3);
+  if (arr.length <= 1) return;
+  el._imgIdx = (el._imgIdx + delta + arr.length) % arr.length;
+  saveSelectorState(el.dataset.cardId, el._activeL2, el._activeL3, el._imgIdx);
   refreshCardDisplay(el);
 }
 
 function refreshCardDisplay(el) {
-  // rebuild full switcher area
   const area = el.querySelector('.card-switcher-area');
-  if (!area) return;
+  if (area) area.innerHTML = buildSwitcherInner(el._imageMap, el._activeL2, el._activeL3);
 
-  const inner = buildSwitcherInner(el._imageMap, el._activeL2, el._activeL3);
-  area.innerHTML = inner;
-
-  // update image
-  const url = getCurrentImageUrl(el._imageMap, el._activeL2, el._activeL3);
+  const arr = getImgArray(el._imageMap, el._activeL2, el._activeL3);
+  const entry = arr.length > 0 ? arr[Math.min(el._imgIdx, arr.length - 1)] : null;
   const existing = el.querySelector('.card-img-wrap');
-  if (url) {
-    if (existing) existing.querySelector('img').src = url;
+  const newHTML = buildImgHTML(entry, arr.length, el._imgIdx);
+  if (newHTML) {
+    if (existing) existing.outerHTML = newHTML;
     else {
       const div = document.createElement('div');
-      div.className = 'card-img-wrap';
-      div.innerHTML = `<img src="${escHtml(url)}" alt="">`;
-      el.insertBefore(div, el.firstChild);
+      div.innerHTML = newHTML;
+      el.insertBefore(div.firstElementChild, el.firstChild);
     }
   } else {
     if (existing) existing.remove();
@@ -354,20 +419,40 @@ function refreshCardDisplay(el) {
 }
 
 // == Detail modal ==
-function openDetail(card, initL2, initL3) {
+function openDetail(card, initL2, initL3, initImgIdx) {
   const imageMap = card.image_map || {};
   const level2Keys = Object.keys(imageMap);
 
   let curL2 = initL2 || (level2Keys[0] || null);
   let curL3 = initL3;
-  if (curL2 && curL3 !== L3_NONE && !curL3) {
+  if (curL2 && curL3 !== L3_NONE && curL3 == null) {
     const l3k = Object.keys(imageMap[curL2] || {});
     curL3 = l3k[0] || null;
   }
+  let curImgIdx = initImgIdx || 0;
 
-  function getUrl(l2, l3) {
-    if (!l2 || l3 === L3_NONE) return null;
-    return (imageMap[l2] || {})[l3] || null;
+  function getImgArr(l2, l3) {
+    if (!l2 || l3 === L3_NONE) return [];
+    return (imageMap[l2] || {})[l3] || [];
+  }
+
+  function buildDetailImgHTML(l2, l3, idx) {
+    const arr = getImgArr(l2, l3);
+    const entry = arr.length > 0 ? arr[Math.min(idx, arr.length - 1)] : null;
+    const url = entryUrl(entry);
+    if (!url) return '';
+    const desc = entryDesc(entry);
+    const nav = arr.length > 1
+      ? `<div class="detail-img-nav">
+           <button class="detail-img-prev" title="上一张">&#8249;</button>
+           <span class="detail-img-counter">${idx + 1}/${arr.length}</span>
+           <button class="detail-img-next" title="下一张">&#8250;</button>
+         </div>`
+      : '';
+    const descHTML = desc
+      ? `<div class="detail-img-desc">${escHtml(desc)}</div>`
+      : '';
+    return `<img class="detail-modal-img" src="${escHtml(url)}" alt="${escHtml(desc)}" id="dm-img">${nav}${descHTML}`;
   }
 
   function buildDetailSwitcherHTML(l2, l3) {
@@ -385,7 +470,7 @@ function openDetail(card, initL2, initL3) {
     return l2html + l3html;
   }
 
-  const initUrl = getUrl(curL2, curL3);
+  const initImgHTML = buildDetailImgHTML(curL2, curL3, curImgIdx);
   const primaryField = card.fields.find(f => f.is_primary) || card.fields[0];
   const otherFields = card.fields.filter(f => !f.is_primary && f.value);
 
@@ -394,7 +479,7 @@ function openDetail(card, initL2, initL3) {
   backdrop.innerHTML = `
     <div class="detail-modal">
       <button class="detail-modal-close" onclick="this.closest('.detail-modal-backdrop').remove()">&#x2715;</button>
-      ${initUrl ? `<img class="detail-modal-img" src="${escHtml(initUrl)}" alt="" id="dm-img">` : ''}
+      <div id="dm-img-area">${initImgHTML}</div>
       <div id="dm-switcher">${buildDetailSwitcherHTML(curL2, curL3)}</div>
       <div class="detail-modal-body">
         ${primaryField ? `<h2 class="detail-modal-title">${escHtml(primaryField.value)}</h2>` : ''}
@@ -412,32 +497,38 @@ function openDetail(card, initL2, initL3) {
       </div>
     </div>`;
 
-  function updateDetailImg(newUrl) {
-    const imgEl = backdrop.querySelector('#dm-img');
-    const modal = backdrop.querySelector('.detail-modal');
-    if (newUrl) {
-      if (imgEl) imgEl.src = newUrl;
-      else modal.insertAdjacentHTML('afterbegin', `<img class="detail-modal-img" src="${escHtml(newUrl)}" alt="" id="dm-img">`);
-    } else {
-      if (imgEl) imgEl.remove();
-    }
+  function refreshDetailDisplay() {
+    backdrop.querySelector('#dm-img-area').innerHTML = buildDetailImgHTML(curL2, curL3, curImgIdx);
+    backdrop.querySelector('#dm-switcher').innerHTML = buildDetailSwitcherHTML(curL2, curL3);
   }
 
   backdrop.addEventListener('click', e => {
     const l2btn = e.target.closest('.detail-level2-btn');
     const l3btn = e.target.closest('.detail-level3-btn');
+    const prevBtn = e.target.closest('.detail-img-prev');
+    const nextBtn = e.target.closest('.detail-img-next');
     if (l2btn) {
       curL2 = l2btn.dataset.l2;
       const l3k = Object.keys(imageMap[curL2] || {});
       curL3 = l3k[0] || null;
-      backdrop.querySelector('#dm-switcher').innerHTML = buildDetailSwitcherHTML(curL2, curL3);
-      updateDetailImg(getUrl(curL2, curL3));
+      curImgIdx = 0;
+      refreshDetailDisplay();
       return;
     }
     if (l3btn) {
       curL3 = l3btn.dataset.l3;
-      backdrop.querySelector('#dm-switcher').innerHTML = buildDetailSwitcherHTML(curL2, curL3);
-      updateDetailImg(getUrl(curL2, curL3));
+      curImgIdx = 0;
+      refreshDetailDisplay();
+      return;
+    }
+    if (prevBtn) {
+      const arr = getImgArr(curL2, curL3);
+      if (arr.length > 1) { curImgIdx = (curImgIdx - 1 + arr.length) % arr.length; refreshDetailDisplay(); }
+      return;
+    }
+    if (nextBtn) {
+      const arr = getImgArr(curL2, curL3);
+      if (arr.length > 1) { curImgIdx = (curImgIdx + 1) % arr.length; refreshDetailDisplay(); }
       return;
     }
     if (e.target === backdrop) backdrop.remove();

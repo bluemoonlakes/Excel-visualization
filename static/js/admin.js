@@ -20,10 +20,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// ── 初始化：加载导入列表 ───────────────────────────────────────────────────────
-(async () => {
-  await loadImports();
-})();
+// ── 初始化 ────────────────────────────────────────────────────────────────────
+(async () => { await loadImports(); })();
 
 async function loadImports() {
   const list = await API.get('/api/admin/imports').catch(() => []);
@@ -48,7 +46,6 @@ async function loadImports() {
       </div>
     </li>
   `).join('');
-
   const active = list.find(i => i.status === 'active');
   if (active && !currentImportId) selectImport(active.id, false);
 }
@@ -77,14 +74,10 @@ const uploadStatus = document.getElementById('upload-status');
 uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
 uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
 uploadZone.addEventListener('drop', e => {
-  e.preventDefault();
-  uploadZone.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) doUpload(file);
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0]; if (file) doUpload(file);
 });
-uploadInput.addEventListener('change', () => {
-  if (uploadInput.files[0]) doUpload(uploadInput.files[0]);
-});
+uploadInput.addEventListener('change', () => { if (uploadInput.files[0]) doUpload(uploadInput.files[0]); });
 
 async function doUpload(file) {
   uploadStatus.textContent = '解析中...';
@@ -119,10 +112,8 @@ function renderColTable() {
   }
   tbody.innerHTML = colConfigs.map((col, idx) => `
     <tr draggable="true" data-idx="${idx}"
-        ondragstart="onDragStart(event,${idx})"
-        ondragover="onDragOver(event,${idx})"
-        ondrop="onDrop(event,${idx})"
-        ondragend="onDragEnd()">
+        ondragstart="onDragStart(event,${idx})" ondragover="onDragOver(event,${idx})"
+        ondrop="onDrop(event,${idx})" ondragend="onDragEnd()">
       <td><span class="drag-handle" title="拖拽排序">⠿</span></td>
       <td><code style="font-size:.82rem;background:var(--gray-100);padding:2px 6px;border-radius:4px">${escHtml(col.column_name)}</code></td>
       <td><input class="input" style="max-width:160px" value="${escHtml(col.display_name || col.column_name)}"
@@ -167,6 +158,7 @@ document.getElementById('save-cols-btn')?.addEventListener('click', async () => 
 
 // ── 数据管理 ──────────────────────────────────────────────────────────────────
 let colHeaders = [];
+let allColHeaders = [];
 
 async function loadAdminCards(importId, page) {
   adminPage = page;
@@ -176,6 +168,7 @@ async function loadAdminCards(importId, page) {
 
   if (!colHeaders.length) {
     const cfg = await API.get(`/api/admin/columns/${importId}`).catch(() => []);
+    allColHeaders = cfg;
     colHeaders = cfg.filter(c => c.is_visible).slice(0, 6);
   }
 
@@ -188,21 +181,162 @@ function renderDataTable(cards) {
   const tbody = document.getElementById('data-tbody');
 
   thead.innerHTML = `<tr>
-    <th>#</th>
+    <th style="width:40px">#</th>
     ${colHeaders.map(c => `<th>${escHtml(c.display_name || c.column_name)}</th>`).join('')}
+    <th style="width:90px">操作</th>
   </tr>`;
 
   if (!cards.length) {
-    tbody.innerHTML = `<tr><td colspan="${colHeaders.length + 1}" style="text-align:center;padding:40px;color:var(--gray-400)">暂无数据</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colHeaders.length + 2}" style="text-align:center;padding:40px;color:var(--gray-400)">暂无数据</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = cards.map(card => `
-    <tr>
-      <td class="text-muted text-xs">${card.row_index}</td>
-      ${colHeaders.map(c => `<td><div class="cell-text">${escHtml(card.data[c.column_name] || '')}</div></td>`).join('')}
-    </tr>
-  `).join('');
+  // 用 DOM 操作避免 JSON 内嵌 HTML 的转义问题
+  tbody.innerHTML = '';
+  cards.forEach(card => {
+    const tr = document.createElement('tr');
+    tr.dataset.cardId = card.id;
+    tr.dataset.cardJson = JSON.stringify(card.data);
+
+    const numTd = document.createElement('td');
+    numTd.className = 'text-muted text-xs';
+    numTd.textContent = card.row_index;
+    tr.appendChild(numTd);
+
+    colHeaders.forEach(c => {
+      const td = document.createElement('td');
+      const div = document.createElement('div');
+      div.className = 'cell-text';
+      div.textContent = card.data[c.column_name] || '';
+      td.appendChild(div);
+      tr.appendChild(td);
+    });
+
+    const actionTd = document.createElement('td');
+    actionTd.className = 'data-row-actions';
+    actionTd.innerHTML = `
+      <button class="btn-icon btn-edit" data-action="edit" title="编辑">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </button>
+      <button class="btn-icon btn-del" data-action="delete" title="删除">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>`;
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  });
+
+  // 事件委托
+  tbody.onclick = e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const cardId = parseInt(tr.dataset.cardId);
+    const cardData = JSON.parse(tr.dataset.cardJson);
+    if (btn.dataset.action === 'delete') deleteCard(cardId);
+    if (btn.dataset.action === 'edit') openEditModal(cardId, cardData);
+  };
+}
+
+async function deleteCard(cardId) {
+  if (!confirm('确定删除此条数据？此操作不可撤销。')) return;
+  await API.del(`/api/admin/cards/${cardId}`)
+    .then(() => { showToast('已删除', 'success'); loadAdminCards(currentImportId, adminPage); })
+    .catch(e => showToast(e.message, 'error'));
+}
+
+function openEditModal(cardId, cardData) {
+  const headers = allColHeaders.length ? allColHeaders : colHeaders;
+  const existing = document.getElementById('edit-card-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'edit-card-modal';
+  modal.className = 'modal-backdrop';
+
+  const inner = document.createElement('div');
+  inner.className = 'modal';
+  inner.style.cssText = 'max-width:600px;max-height:82vh;overflow-y:auto;padding:24px';
+
+  const title = document.createElement('h3');
+  title.style.cssText = 'margin:0 0 16px;font-size:1rem;font-weight:700';
+  title.textContent = `编辑数据 #${cardId}`;
+  inner.appendChild(title);
+
+  const fieldsWrap = document.createElement('div');
+  fieldsWrap.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+
+  headers.forEach(col => {
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'edit-field';
+    const label = document.createElement('label');
+    label.className = 'edit-field-label';
+    label.textContent = col.display_name || col.column_name;
+    const textarea = document.createElement('textarea');
+    textarea.className = 'input edit-field-input';
+    textarea.rows = 2;
+    textarea.dataset.col = col.column_name;
+    textarea.style.cssText = 'resize:vertical;min-height:36px;width:100%';
+    textarea.value = cardData[col.column_name] || '';
+    fieldDiv.appendChild(label);
+    fieldDiv.appendChild(textarea);
+    fieldsWrap.appendChild(fieldDiv);
+  });
+  inner.appendChild(fieldsWrap);
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-100)';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-outline';
+  cancelBtn.textContent = '取消';
+  cancelBtn.onclick = () => modal.remove();
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.id = 'edit-save-btn';
+  saveBtn.textContent = '保存';
+  saveBtn.onclick = () => saveCard(cardId, modal);
+
+  footer.appendChild(cancelBtn);
+  footer.appendChild(saveBtn);
+  inner.appendChild(footer);
+  modal.appendChild(inner);
+
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); }
+  }, { once: true });
+  document.body.appendChild(modal);
+}
+
+async function saveCard(cardId, modal) {
+  const inputs = modal.querySelectorAll('.edit-field-input');
+  const data = {};
+  inputs.forEach(inp => { data[inp.dataset.col] = inp.value; });
+
+  const btn = modal.querySelector('#edit-save-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  await API.put(`/api/admin/cards/${cardId}`, { data })
+    .then(() => {
+      showToast('保存成功', 'success');
+      modal.remove();
+      colHeaders = [];
+      allColHeaders = [];
+      loadAdminCards(currentImportId, adminPage);
+    })
+    .catch(e => {
+      showToast(e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '保存';
+    });
 }
 
 // 图片放大预览
@@ -227,7 +361,7 @@ function showImgModal(url) {
 let mediaPage = 1;
 const mediaPageSize = 30;
 let mediaTotal = 0;
-let mediaPendingFiles = [];  // 待上传文件列表
+let mediaPendingFiles = [];
 let mediaSearchTimer = null;
 
 // ── 素材上传 ──────────────────────────────────────────────────────────────────
@@ -237,14 +371,10 @@ const mediaUploadInput = document.getElementById('media-upload-input');
 mediaUploadZone.addEventListener('dragover', e => { e.preventDefault(); mediaUploadZone.classList.add('dragover'); });
 mediaUploadZone.addEventListener('dragleave', () => mediaUploadZone.classList.remove('dragover'));
 mediaUploadZone.addEventListener('drop', e => {
-  e.preventDefault();
-  mediaUploadZone.classList.remove('dragover');
+  e.preventDefault(); mediaUploadZone.classList.remove('dragover');
   addMediaFiles(e.dataTransfer.files);
 });
-mediaUploadInput.addEventListener('change', () => {
-  addMediaFiles(mediaUploadInput.files);
-  mediaUploadInput.value = '';
-});
+mediaUploadInput.addEventListener('change', () => { addMediaFiles(mediaUploadInput.files); mediaUploadInput.value = ''; });
 
 function addMediaFiles(fileList) {
   const allowed = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
@@ -259,13 +389,9 @@ function renderMediaPreview() {
   const previewList = document.getElementById('media-preview-list');
   const previewItems = document.getElementById('media-preview-items');
   const countEl = document.getElementById('media-preview-count');
-  if (!mediaPendingFiles.length) {
-    previewList.style.display = 'none';
-    return;
-  }
+  if (!mediaPendingFiles.length) { previewList.style.display = 'none'; return; }
   previewList.style.display = 'block';
   countEl.textContent = `已选 ${mediaPendingFiles.length} 张，请确认解析结果后上传`;
-
   previewItems.innerHTML = mediaPendingFiles.map((f, idx) => {
     const parsed = parseFilenameClient(f.name);
     const hasWarn = parsed.warnings.length > 0;
@@ -280,67 +406,44 @@ function renderMediaPreview() {
         </div>
         ${hasWarn ? `<div class="media-preview-warning">${parsed.warnings.join(' ')}</div>` : ''}
         <button class="media-preview-remove" onclick="removeMediaFile(${idx})" title="移除">✕</button>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
 function parseFilenameClient(filename) {
-  // Mirror of server-side parse_media_filename
   const warnings = [];
   const dotIdx = filename.lastIndexOf('.');
   let name = dotIdx > -1 ? filename.slice(0, dotIdx) : filename;
-
-  // Extract level3 from trailing brackets
   let level3 = '';
   const bracketRe = /[（(]([^）)]+)[）)]$/;
   const bm = name.match(bracketRe);
-  if (bm) {
-    level3 = bm[1].trim();
-    name = name.slice(0, bm.index).trim();
-  } else {
-    warnings.push('未找到括号，团队标签为空');
-  }
-
+  if (bm) { level3 = bm[1].trim(); name = name.slice(0, bm.index).trim(); }
+  else { warnings.push('未找到括号，团队标签为空'); }
   const parts = name.split('_');
   const level1 = parts[0]?.trim() || '';
   const level2 = parts[1]?.trim() || '';
   const description = parts.slice(2).join('_').trim();
-
   if (!level1) warnings.push('客户问题类型为空');
   if (!level2) warnings.push('素材类型为空');
-
   return { level1, level2, level3, description, warnings };
 }
 
-function removeMediaFile(idx) {
-  mediaPendingFiles.splice(idx, 1);
-  renderMediaPreview();
-}
-
-function clearMediaPreview() {
-  mediaPendingFiles = [];
-  renderMediaPreview();
-}
+function removeMediaFile(idx) { mediaPendingFiles.splice(idx, 1); renderMediaPreview(); }
+function clearMediaPreview() { mediaPendingFiles = []; renderMediaPreview(); }
 
 async function confirmMediaUpload() {
   if (!mediaPendingFiles.length) return;
   const btn = document.getElementById('media-confirm-upload-btn');
   const statusEl = document.getElementById('media-upload-status');
-  btn.disabled = true;
-  btn.textContent = '上传中...';
+  btn.disabled = true; btn.textContent = '上传中...';
   statusEl.textContent = '';
-
   const fd = new FormData();
   mediaPendingFiles.forEach(f => fd.append('files[]', f));
-
   try {
     const results = await API.post('/api/admin/media/upload', fd, true);
     const created = results.filter(r => r.status === 'created').length;
-    const replaced = results.filter(r => r.status === 'replaced').length;
     const errors = results.filter(r => r.error).length;
     let msg = `上传完成：新增 ${created} 张`;
-    if (replaced) msg += `，替换 ${replaced} 张`;
     if (errors) msg += `，失败 ${errors} 张`;
     statusEl.innerHTML = `<span style="color:var(--success)">✓ ${msg}</span>`;
     showToast(msg, 'success');
@@ -352,14 +455,12 @@ async function confirmMediaUpload() {
     statusEl.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`;
     showToast(e.message, 'error');
   }
-  btn.disabled = false;
-  btn.textContent = '确认上传';
+  btn.disabled = false; btn.textContent = '确认上传';
 }
 
 // ── 素材浏览 ──────────────────────────────────────────────────────────────────
 async function loadMediaTags() {
   const tags = await API.get('/api/admin/media/tags').catch(() => ({ level1_options: [], level2_options: [], level3_options: [] }));
-
   const fillSelect = (id, options, allLabel) => {
     const sel = document.getElementById(id);
     const cur = sel.value;
@@ -377,17 +478,14 @@ async function loadMediaAssets(page) {
   const l2 = document.getElementById('media-filter-l2')?.value || '';
   const l3 = document.getElementById('media-filter-l3')?.value || '';
   const kw = document.getElementById('media-filter-keyword')?.value || '';
-
   const params = new URLSearchParams({ page, page_size: mediaPageSize });
   if (l1) params.set('level1', l1);
   if (l2) params.set('level2', l2);
   if (l3) params.set('level3', l3);
   if (kw) params.set('keyword', kw);
-
   const data = await API.get(`/api/admin/media?${params}`).catch(() => null);
   if (!data) return;
   mediaTotal = data.total;
-
   renderMediaGrid(data.items);
   renderPagination('media-pagination', page, Math.ceil(mediaTotal / mediaPageSize), p => loadMediaAssets(p));
 }
@@ -410,6 +508,7 @@ function renderMediaGrid(items) {
           <span class="media-tag media-tag-l2">${escHtml(item.level2)}</span>
           <span class="media-tag media-tag-l3">${escHtml(item.level3)}</span>
         </div>
+        ${item.description ? `<div class="media-item-desc" style="font-size:.72rem;color:var(--gray-400);margin-top:2px">${escHtml(item.description)}</div>` : ''}
       </div>
       <button class="media-item-delete" onclick="deleteMedia(${item.id})" title="删除">
         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -437,7 +536,6 @@ function debounceMediaSearch() {
 function renderPagination(containerId, current, total, onClick) {
   const el = document.getElementById(containerId);
   if (!el || total <= 1) { if (el) el.innerHTML = ''; return; }
-
   let html = `<button class="page-btn" ${current<=1?'disabled':''} onclick="(${onClick.toString()})(${current-1})">‹</button>`;
   for (let i = 1; i <= total; i++) {
     if (total > 7 && i > 2 && i < total - 1 && Math.abs(i - current) > 2) {

@@ -84,43 +84,20 @@ def get_level2_options():
         conn.close()
 
 
-def upsert_media_asset(conn, original_filename, level1, level2, level3,
-                       description, file_path, file_size):
+def insert_media_asset(conn, original_filename, level1, level2, level3,
+                      description, file_path, file_size):
     """
-    Insert or replace a media asset.
-    If (level1, level2, level3) already exists, delete old file and replace.
-    Returns status: 'created' or 'replaced'.
+    Insert a new media asset. Always appends.
+    Same (level1, level2, level3) can have multiple images.
+    Returns status: 'created'.
     """
-    existing = conn.execute(
-        "SELECT id, file_path FROM media_assets WHERE level1=? AND level2=? AND level3=?",
-        (level1, level2, level3)
-    ).fetchone()
-
-    status = 'created'
-    if existing:
-        # Delete old file
-        old_path = os.path.join(UPLOAD_MEDIA, existing['file_path'])
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except OSError:
-                pass
-        conn.execute(
-            """UPDATE media_assets
-               SET original_filename=?, file_path=?, file_size=?, description=?,
-                   created_at=CURRENT_TIMESTAMP
-               WHERE level1=? AND level2=? AND level3=?""",
-            (original_filename, file_path, file_size, description, level1, level2, level3)
-        )
-        status = 'replaced'
-    else:
-        conn.execute(
-            """INSERT INTO media_assets
-               (original_filename, level1, level2, level3, description, file_path, file_size)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (original_filename, level1, level2, level3, description, file_path, file_size)
-        )
-    return status
+    conn.execute(
+        """INSERT INTO media_assets
+           (original_filename, level1, level2, level3, description, file_path, file_size)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (original_filename, level1, level2, level3, description, file_path, file_size)
+    )
+    return 'created'
 
 
 def resolve_media_url(level1, level2, level3):

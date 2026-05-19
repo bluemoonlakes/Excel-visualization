@@ -75,7 +75,7 @@ def init_db():
             created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_media_lookup
+        CREATE INDEX IF NOT EXISTS idx_media_lookup
             ON media_assets(level1, level2, level3);
         CREATE INDEX IF NOT EXISTS idx_media_l1 ON media_assets(level1);
         CREATE INDEX IF NOT EXISTS idx_media_l2 ON media_assets(level2);
