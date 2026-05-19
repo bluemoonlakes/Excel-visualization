@@ -1,23 +1,27 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
+# 数据库（含个人数据，不提交）
+app.db
 
-# Environment
+# 上传目录（图片、Excel 文件，不提交）
+uploads/
+
+# Python 编译缓存
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 环境变量
 .env
+.env.*
+
+# 虚拟环境
 venv/
+.venv/
 env/
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Uploads
-uploads/
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # IDE
 .vscode/
@@ -25,13 +29,6 @@ uploads/
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Pip temp files (Windows)
-=*
+# 残留垃圾文件
 nul
-
-# Excel data files
-*.xlsx
+=*
