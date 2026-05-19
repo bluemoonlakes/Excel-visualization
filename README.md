@@ -7,7 +7,7 @@
 ## 功能特性
 
 ### 1. Excel 导入
-- 支持  /  格式导入
+- 支持 `.xlsx` / `.xls` 格式导入
 - 自动识别字段类型（标签 / 文本）
 - 自动生成筛选维度与可筛选值
 - SQL 层面分页，支持大数据量
@@ -20,23 +20,28 @@
 
 ### 3. 图片素材库
 - **三级标签体系**：
-  - Level 1: 问题类型（从 Excel 自动匹配）
-  - Level 2: 素材类型（如服务介绍、话术模板）
-  - Level 3: 团队 / 通用（文件名括号内内容）
-- **文件名规范**： 或 
+  - Level 1：问题类型（从 Excel 自动匹配）
+  - Level 2：素材类型（如服务介绍、话术模板）
+  - Level 3：团队 / 通用（文件名括号内内容）
+- **文件名规范**：`问题类型_素材类型_描述（团队）.jpg`
 - 支持批量上传、自动解析文件名标签
-- 同一三级组合自动覆盖更新
+- 相同三级组合可重复上传，多张图片会同时保留，展示时可左右切换
+- 图片下方自动显示描述文字
 
 ### 4. 卡片内独立图片选择
 - 每张卡片独立维护自己的 Level 2 / Level 3 选择
-- 选择器互不干扰
-- 支持不显示图片选项
+- 选择器互不干扰，状态通过 localStorage 持久化
+- 支持"不显示"选项
 - 支持通用选项（无括号文件名）
 
 ### 5. 一键收起/展开选择器
 - 单张卡片右上角小按钮独立控制
-- 页面顶部收起全部/展开全部一键控制
+- 页面顶部收起全部 / 展开全部一键控制
 - 折叠动画平滑过渡
+
+### 6. 数据管理
+- 后台数据管理 Tab 支持逐条编辑、删除
+- 编辑弹窗展示所有字段，修改后实时保存
 
 ---
 
@@ -54,7 +59,38 @@
 
 ## 目录结构
 
-
+```
+demo/
+├── app.py                  # 应用入口
+├── config.py               # 配置项
+├── requirements.txt
+├── models/
+│   └── database.py         # SQLite 初始化 & 连接
+├── routes/
+│   ├── admin_routes.py     # 后台管理 API
+│   └── card_routes.py      # 卡片展示 API
+├── services/
+│   ├── card_service.py     # 卡片查询 & 图片映射
+│   ├── config_service.py   # 字段配置
+│   ├── excel_parser.py     # Excel 解析导入
+│   └── media_service.py    # 素材库解析 & 存储
+├── static/
+│   ├── css/
+│   │   ├── main.css
+│   │   ├── cards.css
+│   │   └── admin.css
+│   └── js/
+│       ├── api.js
+│       ├── cards.js
+│       └── admin.js
+├── templates/
+│   ├── index.html          # 卡片展示页
+│   └── admin.html          # 后台管理页
+└── uploads/                # 自动创建，不纳入 Git
+    ├── excels/
+    └── images/
+        └── media/          # 素材库图片
+```
 
 ---
 
@@ -62,44 +98,36 @@
 
 ### 1. 安装依赖
 
-Requirement already satisfied: flask>=3.0.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from -r requirements.txt (line 1)) (3.1.3)
-Requirement already satisfied: openpyxl>=3.1.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from -r requirements.txt (line 2)) (3.1.5)
-Requirement already satisfied: Pillow>=10.0.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from -r requirements.txt (line 3)) (12.2.0)
-Requirement already satisfied: python-dotenv>=1.0.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from -r requirements.txt (line 4)) (1.2.2)
-Requirement already satisfied: blinker>=1.9.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (1.9.0)
-Requirement already satisfied: click>=8.1.3 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (8.4.0)
-Requirement already satisfied: itsdangerous>=2.2.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (2.2.0)
-Requirement already satisfied: jinja2>=3.1.2 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (3.1.6)
-Requirement already satisfied: markupsafe>=2.1.1 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (3.0.3)
-Requirement already satisfied: werkzeug>=3.1.0 in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from flask>=3.0.0->-r requirements.txt (line 1)) (3.1.8)
-Requirement already satisfied: et-xmlfile in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from openpyxl>=3.1.0->-r requirements.txt (line 2)) (2.0.0)
-Requirement already satisfied: colorama in C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages (from click>=8.1.3->flask>=3.0.0->-r requirements.txt (line 1)) (0.4.6)
+```bash
+pip install -r requirements.txt
+```
 
-依赖包含：   
+依赖包含：`flask` `openpyxl` `Pillow` `python-dotenv`
 
 ### 2. 启动服务
 
- * Serving Flask app 'app'
- * Debug mode: on
+```bash
+python app.py
+```
 
-服务默认运行在 
+服务默认运行在 `http://127.0.0.1:5000`
 
 ### 3. 使用
 
 | 页面 | URL | 功能 |
 |---|---|---|
-| 展示页 |  | 查看话术卡片，筛选、搜索、切换图片 |
-| 管理后台 |  | Excel 导入、素材库管理 |
+| 展示页 | `http://127.0.0.1:5000/` | 查看话术卡片，筛选、搜索、切换图片 |
+| 管理后台 | `http://127.0.0.1:5000/admin` | Excel 导入、字段配置、数据管理、素材库 |
 
 ### 4. 配置说明
 
- 中可修改以下配置项：
+`config.py` 中可修改以下配置项：
 
--  — Excel 列名映射到 Level 1 标签
--  — Excel 列名映射到 Level 3 标签
--  — 图片压缩尺寸
--  — 图片压缩质量
--  — 默认每页数量
+- `LEVEL1_COLUMN` — Excel 列名映射到 Level 1 标签（默认：`问题类型`）
+- `LEVEL3_COLUMN` — Excel 列名映射到 Level 3 标签（默认：`团队`）
+- `MAX_IMAGE_SIZE` — 图片压缩尺寸（默认：`1920×1920`）
+- `IMAGE_QUALITY` — 图片压缩质量（默认：`85`）
+- `FILTERABLE_THRESHOLD` — 筛选选项最大数量阈值（默认：`20`）
 
 ---
 
@@ -109,22 +137,26 @@ Requirement already satisfied: colorama in C:\Users\User\AppData\Local\hermes\he
 
 素材库根据文件名自动解析三级标签：
 
-
+```
+问题类型_素材类型_描述（团队）.jpg
+```
 
 示例：
-- 
-  - Level 1: 
-  - Level 2: 
-  - Level 3: 
 
-- 
-  - Level 1: 
-  - Level 2: 
-  - Level 3: （无括号时默认为空）
+- `核心服务_服务介绍_掌股核心服务_001（杨）.jpg`
+  - Level 1：`核心服务`
+  - Level 2：`服务介绍`
+  - Level 3：`杨`
+  - 描述：`掌股核心服务_001`
+
+- `核心服务_话术模板.jpg`
+  - Level 1：`核心服务`
+  - Level 2：`话术模板`
+  - Level 3：（空，归入通用）
 
 ### 上传方式
 
-在后台  → 素材库 Tab 中，批量拖拽或点选上传。同一  组合会自动覆盖旧文件。
+在后台 `/admin` → **素材库** Tab 中，批量拖拽或点选上传。相同三级组合可多次上传，所有图片同时保留，展示时左右切换。
 
 ---
 
@@ -132,21 +164,20 @@ Requirement already satisfied: colorama in C:\Users\User\AppData\Local\hermes\he
 
 | 表名 | 说明 |
 |---|---|
-|  | Excel 导入记录 |
-|  | 话术卡片数据（JSON 存储） |
-|  | 字段显示配置 |
-|  | 筛选选项及计数 |
-|  | 图片素材库三级标签 |
-|  | 图片显示规则（兼容保留） |
-|  | 应用设置 |
+| `excel_imports` | Excel 导入记录 |
+| `cards` | 话术卡片数据（JSON 存储） |
+| `column_configs` | 字段显示配置 |
+| `filter_options` | 筛选选项及计数 |
+| `media_assets` | 图片素材库三级标签 |
+| `app_settings` | 应用设置 |
 
 ---
 
 ## 开发注意事项
 
 - SQLite 需要 3.38+ 版本（支持 JSON1 扩展）
-- 图片上传后会自动压缩至 ，保存为 JPEG
--  目录下的文件不纳入 Git 版本控制
+- 图片上传后会自动压缩至 `1920×1920` 以内，JPEG 质量 85
+- `uploads/` 目录下的文件不纳入 Git 版本控制
 
 ---
 
